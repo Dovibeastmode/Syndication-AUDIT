@@ -10,7 +10,7 @@
  *   access "Only myself".
  *********************************************************************/
 
-var WA_VERSION = "2.6";
+var WA_VERSION = "2.6.1";
 /* v2.6 (2026-09-17, after the PMF reserve reconciliation):
  *  - CLEARED vs PENDING. PMF credits the reserve only for payments that have
  *    CLEARED. The Advances Report page shows PENDING (cleared + in-flight
@@ -923,6 +923,23 @@ function WA_addTimeStamp(invId, contrib, withdraw, dateStr) {
   if (c < 0 || w < 0) throw new Error("Amounts must be positive numbers.");
   if (c === 0 && w === 0) throw new Error("Enter a deposit or a withdrawal amount.");
   if (!dateStr) throw new Error("Pick a date.");
+  // v2.6.1: a withdrawal can never exceed that investor's Available Cash
+  // (Snapshot column H). Snapshot!H must itself subtract withdrawals - see
+  // the 2026-10-08 withdrawal fix - or this guard will be too generous.
+  if (w > 0) {
+    const ss = SpreadsheetApp.getActive();
+    const invSh = ss.getSheetByName("Investors");
+    const row = WA_invRow_(invSh, id);
+    const name = row === -1 ? "" : String(invSh.getRange(row, 2).getValue() || "").trim();
+    const snap = ss.getSheetByName("Snapshot");
+    const sl = snap.getLastRow();
+    let avail = null;
+    (sl > 1 ? snap.getRange(2, 1, sl - 1, 8).getValues() : []).forEach(r => {
+      if (String(r[0] || "").trim() === name) avail = WA_num_(r[7]);
+    });
+    if (avail !== null && w > avail + 0.005)
+      throw new Error("Withdrawal " + w.toFixed(2) + " exceeds " + name + "'s Available Cash of " + avail.toFixed(2) + ".");
+  }
   const ts = SpreadsheetApp.getActive().getSheetByName("Time_Stamps");
   ts.appendRow(["ID " + id, c, w, new Date(dateStr + "T12:00:00")]);
   SpreadsheetApp.flush();
