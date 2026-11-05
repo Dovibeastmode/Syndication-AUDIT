@@ -30,7 +30,8 @@
  * Unchanged from the 2026-08-11 version:
  *   PLATFORM FEE SCHEDULE, applied per deal by funded date (the date comes
  *   from Deal_Locks column B, falling back to raw Start Date):
- *     funded on/after 2026-08-09  ->  3% in / 3% out  (first deal: 5674188893)
+ *     funded on/after 2026-08-09  ->  3% in / 3% out  (first deal: 5674188893,
+ *                                    funded 8/10; every later deal stays 3%)
  *     funded before that          ->  4% in / 4% out
  *     no funded date on record    ->  4% (old era default)
  *   Per-deal MANAGER MGMT-FEE SKIP FLAG in Override column M.
@@ -119,8 +120,13 @@ function REBUILD_PaymentsView_VALUES_() {
   // deals with no funded date on record. To change the rate again, add a new
   // row at the top - nothing else in this function needs touching.
   const FEE_SCHEDULE = [
-    // months are 0-indexed: (2026, 7, 9) = August 9, 2026. MCA Track shows
-    // 5674188893 funded 8/9 with upfront fee 3%, so the cutoff is 8/9.
+    // months are 0-indexed: (2026, 7, 9) = August 9, 2026.
+    // Dovi's rule (2026-11-05): 3% starts with the first deal MCA Track bills
+    // at 3% - 5674188893, funded 8/10/2026 - and EVERY deal after it is 3%.
+    // No deals were funded 8/5 to 8/9, so an 8/9 cutoff makes 5674188893 the
+    // first 3% deal while keeping a one-day margin for timezone shifts.
+    // Known difference: PMF billed 5674191346 (9/22) and 5674193206 (10/22)
+    // at 4%; this schedule keeps them at 3% on purpose.
     { from: new Date(2026, 7, 9), feeIn: 0.03, feeOut: 0.03 },
     { from: null,                 feeIn: 0.04, feeOut: 0.04 }, // the original 4% era
   ];
